@@ -1,11 +1,13 @@
 // client/src/lib/supabase.ts
 import { createClient } from '@supabase/supabase-js';
 
-const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const rawUrl =
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  'https://vrfwgoigtmixkkunvrnw.supabase.co';
 const rawAnonKey =
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  '';
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZyZndnb2lndG1peGtrdW52cm53Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5ODQ0MTIsImV4cCI6MjEwNTU2MDQxMn0.fDzpZvoeziDZW7i2qvTcAs5x1fWx9uQxhCeHBVcpgEw';
 
 /**
  * Normalizes and sanitizes any user-provided Supabase URL.

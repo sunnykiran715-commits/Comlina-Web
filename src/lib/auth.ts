@@ -397,10 +397,19 @@ class AuthService {
     }
 
     try {
-      let resp = await fetch(`${API_BASE}/auth/me`, {
-        credentials: 'include',
-        headers,
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+      let resp: Response;
+      try {
+        resp = await fetch(`${API_BASE}/auth/me`, {
+          credentials: 'include',
+          headers,
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
       // If token/cookie expired or missing, attempt seamless token refresh once
       if (resp.status === 401) {
