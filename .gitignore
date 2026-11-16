@@ -11,6 +11,8 @@
 /.next/
 /.next_app/
 /.build_dist/
+/.open-next/
+/.wrangler/
 /out/
 /build
 /dist
@@ -21,6 +23,7 @@
 # Security & environment
 .env*.local
 .env
+.dev.vars
 !.env.example
 
 # Debug logs
