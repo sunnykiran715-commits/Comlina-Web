@@ -74,38 +74,51 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        // If syncResult was null, check whether user has cached credentials
-        const hasCachedUser = typeof window !== 'undefined' && (
-          !!localStorage.getItem('comlina_user') || !!localStorage.getItem('comlina_token')
-        );
-
-        if (hasCachedUser) {
-          // Cached user exists but backend sync was unreachable or errored - do not redirect to login!
+        // If syncResult was null, check whether user has an active session (Supabase or cached)
+        const currentUser = await authService.getUser();
+        if (currentUser) {
+          const fallbackWorkspace = {
+            id: currentUser.id,
+            name: `${currentUser.fullName || 'My'}'s Workspace`,
+            slug: `workspace-${currentUser.id.slice(0, 8)}`,
+            planTier: 'FREE',
+          };
+          api.setWorkspaceId(fallbackWorkspace.id);
+          setCurrentWorkspace(fallbackWorkspace);
           if (mounted) {
-            setAuthState('error');
-            setErrorMessage('Unable to reach authentication server. Please check your connection.');
+            setAuthState('authenticated');
           }
           return;
         }
 
-        // No valid session or cookies - redirect to login
+        // Truly unauthenticated (no Supabase session, no tokens) - cleanly sign out and redirect to login
         if (mounted) {
           setAuthState('unauthenticated');
-          router.replace('/login');
+          await authService.signOut();
         }
       } catch (err: any) {
         console.error('AuthGuard session verification error:', err);
         if (mounted) {
-          const hasCachedUser = typeof window !== 'undefined' && (
-            !!localStorage.getItem('comlina_user') || !!localStorage.getItem('comlina_token')
-          );
-          if (hasCachedUser) {
-            setAuthState('error');
-            setErrorMessage('Unable to reach authentication server. Please check your connection.');
-          } else {
-            setAuthState('unauthenticated');
-            router.replace('/login');
+          try {
+            const currentUser = await authService.getUser();
+            if (currentUser) {
+              const fallbackWorkspace = {
+                id: currentUser.id,
+                name: `${currentUser.fullName || 'My'}'s Workspace`,
+                slug: `workspace-${currentUser.id.slice(0, 8)}`,
+                planTier: 'FREE',
+              };
+              api.setWorkspaceId(fallbackWorkspace.id);
+              setCurrentWorkspace(fallbackWorkspace);
+              setAuthState('authenticated');
+              return;
+            }
+          } catch {
+            // ignore
           }
+
+          setAuthState('unauthenticated');
+          await authService.signOut();
         }
       }
     }

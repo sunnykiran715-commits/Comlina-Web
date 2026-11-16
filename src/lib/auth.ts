@@ -298,6 +298,15 @@ class AuthService {
           options: { data: { full_name: fullName?.trim() || '' } },
         });
         if (!error && data?.session) {
+          const u = data.session.user;
+          this._backendUser = {
+            id: u.id,
+            email: u.email || '',
+            fullName: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split('@')[0] || '',
+          };
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('comlina_user', JSON.stringify(this._backendUser));
+          }
           return { success: true };
         }
         if (!error && data?.user) {
@@ -348,6 +357,15 @@ class AuthService {
           password,
         });
         if (!error && data?.session) {
+          const u = data.session.user;
+          this._backendUser = {
+            id: u.id,
+            email: u.email || '',
+            fullName: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split('@')[0] || '',
+          };
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('comlina_user', JSON.stringify(this._backendUser));
+          }
           return { success: true };
         }
         if (error) {
@@ -398,9 +416,9 @@ class AuthService {
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-      let resp: Response;
+      let resp: Response | null = null;
       try {
         resp = await fetch(`${API_BASE}/auth/me`, {
           credentials: 'include',
@@ -412,7 +430,7 @@ class AuthService {
       }
 
       // If token/cookie expired or missing, attempt seamless token refresh once
-      if (resp.status === 401) {
+      if (resp && resp.status === 401) {
         const refreshedToken = await this.refreshToken();
         if (refreshedToken) {
           resp = await fetch(`${API_BASE}/auth/me`, {
@@ -425,61 +443,90 @@ class AuthService {
         }
       }
 
-      if (!resp.ok) return null;
-      const data = await resp.json();
+      if (resp && resp.ok) {
+        const data = await resp.json();
 
-      // Persist access/refresh tokens if newly provided by session renewal
-      const accessToken = data.access_token || data.session?.access_token;
-      const refreshToken = data.refresh_token || data.session?.refresh_token;
+        // Persist access/refresh tokens if newly provided by session renewal
+        const accessToken = data.access_token || data.session?.access_token;
+        const refreshToken = data.refresh_token || data.session?.refresh_token;
 
-      if (accessToken) {
-        this._backendToken = accessToken;
+        if (accessToken) {
+          this._backendToken = accessToken;
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('comlina_token', accessToken);
+          }
+        }
+        if (refreshToken) {
+          this._backendRefreshToken = refreshToken;
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('comlina_refresh_token', refreshToken);
+          }
+        }
+
+        this._backendUser = {
+          id: data.id,
+          email: data.email,
+          fullName: data.full_name,
+        };
+
         if (typeof window !== 'undefined') {
-          localStorage.setItem('comlina_token', accessToken);
+          localStorage.setItem('comlina_user', JSON.stringify(this._backendUser));
+          if (data.workspace) {
+            localStorage.setItem('comlina_workspace', JSON.stringify(data.workspace));
+          }
         }
-      }
-      if (refreshToken) {
-        this._backendRefreshToken = refreshToken;
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('comlina_refresh_token', refreshToken);
-        }
-      }
 
-      this._backendUser = {
-        id: data.id,
-        email: data.email,
-        fullName: data.full_name,
-      };
-
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('comlina_user', JSON.stringify(this._backendUser));
-        if (data.workspace) {
-          localStorage.setItem('comlina_workspace', JSON.stringify(data.workspace));
-        }
+        return {
+          user: this._backendUser,
+          workspace: data.workspace,
+        };
       }
-
-      return {
-        user: this._backendUser,
-        workspace: data.workspace,
-      };
     } catch (err) {
       console.warn('[Auth] syncWithBackend error:', err);
-      // Return cached user/workspace from localStorage if network unreachable
-      if (typeof window !== 'undefined' && this._backendUser) {
-        try {
-          const storedWs = localStorage.getItem('comlina_workspace');
-          if (storedWs) {
-            return {
-              user: this._backendUser,
-              workspace: JSON.parse(storedWs),
-            };
-          }
-        } catch {
-          // ignore
-        }
-      }
-      return null;
     }
+
+    // Fallback: If backend is unreachable or returned error, recover from local session/cache
+    if (typeof window !== 'undefined' && this._backendUser) {
+      try {
+        const storedWs = localStorage.getItem('comlina_workspace');
+        if (storedWs) {
+          return {
+            user: this._backendUser,
+            workspace: JSON.parse(storedWs),
+          };
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    // Fallback for Supabase authenticated session
+    if (isSupabaseConfigured) {
+      try {
+        const supaUser = await this.getUser();
+        if (supaUser) {
+          const fallbackWs = {
+            id: supaUser.id,
+            name: `${supaUser.fullName || 'My'}'s Workspace`,
+            slug: `ws-${supaUser.id.slice(0, 8)}`,
+            planTier: 'FREE',
+          };
+          this._backendUser = supaUser;
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('comlina_user', JSON.stringify(supaUser));
+            localStorage.setItem('comlina_workspace', JSON.stringify(fallbackWs));
+          }
+          return {
+            user: supaUser,
+            workspace: fallbackWs,
+          };
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    return null;
   }
 
   // ---------- Sign Out ----------

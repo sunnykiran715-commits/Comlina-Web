@@ -28,10 +28,19 @@ export default function LoginPage() {
 
     // Check if user is already authenticated
     async function checkExistingSession() {
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('error') || params.get('error_description') || params.get('logout')) {
+          return;
+        }
+      }
       try {
         const isAuth = await authService.isAuthenticated();
         if (isAuth) {
-          window.location.href = '/dashboard';
+          const user = await authService.getUser();
+          if (user) {
+            router.replace('/dashboard');
+          }
         }
       } catch {
         // ignore
