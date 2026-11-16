@@ -28,9 +28,31 @@ const serverEnv = parseEnv(path.resolve(__dirname, '..', 'server', '.env'));
 const clientEnv = parseEnv(path.resolve(__dirname, '.env.local'));
 const mergedEnv = { ...rootEnv, ...serverEnv, ...clientEnv, ...process.env };
 
-const supabaseUrl = mergedEnv.NEXT_PUBLIC_SUPABASE_URL || mergedEnv.SUPABASE_URL || '';
+function sanitizeSupabaseUrl(url) {
+  if (!url || typeof url !== 'string') return 'https://placeholder.supabase.co';
+  let trimmed = url.trim().replace(/^<+|>+$/g, '');
+  if (!trimmed || trimmed === 'placeholder' || trimmed === 'undefined' || trimmed === 'null') {
+    return 'https://placeholder.supabase.co';
+  }
+  if (!trimmed.match(/^https?:\/\//i)) {
+    trimmed = `https://${trimmed}`;
+  }
+  try {
+    const parsed = new URL(trimmed);
+    if (!parsed.protocol.startsWith('http') || parsed.hostname.includes('<') || parsed.hostname.includes('>')) {
+      return 'https://placeholder.supabase.co';
+    }
+    return trimmed;
+  } catch {
+    return 'https://placeholder.supabase.co';
+  }
+}
+
+const rawSupabaseUrl = mergedEnv.NEXT_PUBLIC_SUPABASE_URL || mergedEnv.SUPABASE_URL || '';
+const supabaseUrl = sanitizeSupabaseUrl(rawSupabaseUrl);
 const supabasePublishableKey = mergedEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || mergedEnv.SUPABASE_PUBLISHABLE_KEY || '';
-const supabaseAnonKey = supabasePublishableKey || mergedEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY || mergedEnv.SUPABASE_ANON_KEY || '';
+const rawAnonKey = supabasePublishableKey || mergedEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY || mergedEnv.SUPABASE_ANON_KEY || '';
+const supabaseAnonKey = rawAnonKey.trim() || 'placeholder-anon-key';
 const apiUrl = mergedEnv.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
 /** @type {import('next').NextConfig} */
