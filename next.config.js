@@ -59,7 +59,7 @@ const apiUrl = mergedEnv.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 const nextConfig = {
   // Standard default .next build directory
   distDir: process.env.NEXT_DIST_DIR || undefined,
-  output: process.env.DOCKER_BUILD === '1' || process.env.OUTPUT_STANDALONE === '1' ? 'standalone' : undefined,
+  output: process.env.DOCKER_BUILD === '1' || process.env.OUTPUT_STANDALONE === '1' ? 'standalone' : 'export',
   reactStrictMode: false,
   env: {
     NEXT_PUBLIC_SUPABASE_URL: supabaseUrl,
@@ -72,6 +72,7 @@ const nextConfig = {
     pagesBufferLength: 30,
   },
   images: {
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: 'https',
